@@ -14,6 +14,8 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.geotools.data.Query;
+import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.feature.DefaultFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
@@ -47,91 +49,6 @@ public class BeachProfileTracking {
 	private static DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
 
 	public BeachProfileTracking() {}
-	
-//	public FeatureCollection<SimpleFeatureType, SimpleFeature> FileValidation(File f){
-//		
-//		//TODO write the warning message in the featureCollection returned
-//		SimpleFeatureTypeBuilder b = new SimpleFeatureTypeBuilder();
-//		b.setName("ErrorFeature");
-//		b.add("error", String.class);
-//		SimpleFeatureType type = b.buildFeatureType();
-//		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(type);		
-//		DefaultFeatureCollection dfc = new DefaultFeatureCollection();
-//		FeatureCollection<SimpleFeatureType, SimpleFeature> fc;
-//		
-//		// check if the file contains a FeatureCollection. If it does, return it. Otherwise, return an empty FeatureCollection
-//		try {
-//			fc = GeoJsonUtils.geoJsonToFeatureCollection(f);
-//		} catch (Exception e) {
-//			builder.set("error", "Impossible to find the FeatureCollection of the file.");
-//			SimpleFeature sf = builder.buildFeature(null);
-//			dfc.add(sf);
-//			return dfc;
-//		}
-//
-//		// check if the file contains a CoordinateReferenceSystem and if it's a WGS 84
-//		try {
-//			CoordinateReferenceSystem myCRS = GeoJsonUtils.geoJsonToCoordinateReferenceSystem(f);
-//			CoordinateReferenceSystem refCRS = CRS.decode("EPSG:4326");
-//			if(!CRS.equalsIgnoreMetadata(myCRS, refCRS)){
-//				builder.set("error", "The CoordinateReferenceSystem is not of type WGS 84 (EPSG 4326)..");
-//				SimpleFeature sf = builder.buildFeature(null);
-//				dfc.add(sf);		
-//				FeatureIterator<SimpleFeature> iterator = fc.features();
-//				while (iterator.hasNext()) {
-//					SimpleFeature feature = iterator.next();
-//					dfc.add(feature);
-//				}
-//				return dfc;
-//			}
-//		} catch (Exception e1) {
-//			builder.set("error", "Impossible to find the CoordinateReferenceSystem of the file.");
-//			SimpleFeature sf = builder.buildFeature(null);
-//			dfc.add(sf);		
-//			FeatureIterator<SimpleFeature> iterator = fc.features();
-//			while (iterator.hasNext()) {
-//				SimpleFeature feature = iterator.next();
-//				dfc.add(feature);
-//			}
-//			return dfc;
-//		}
-//		
-//		return fc;
-//	}
-	
-//	public boolean FeatureCollectionValidation(FeatureCollection<SimpleFeatureType, SimpleFeature> fc){
-//		//we want a specific format to our featureCollection : multiple features each with a date as parameter and a geometry of type LineString	
-//		FeatureIterator<SimpleFeature> iterator = fc.features();
-//		//check if the FeatureCollection contains features
-//		if(iterator.hasNext() == false){
-//			System.out.println("Warning : the FeatureCollection is empty.");
-//			return false;
-//		}
-//		while (iterator.hasNext()) {
-//			SimpleFeature feature = iterator.next();
-//			if(feature.getName().getLocalPart() == "ErrorFeature") System.out.println(feature.getAttribute("error"));
-//			//check if each feature has a Geometry of type LineString
-//			if(!feature.getDefaultGeometry().getClass().getSimpleName().equals("LineString")){
-//				System.out.println("Warning : A feature doesn't contains a Geometry of type LineString");
-//				return false;
-//			}
-//			//check if each feature has a date at the good format			
-//			dateFormat.setLenient(false);			
-//			Collection<Property> properties = feature.getProperties();
-//			boolean hasDate = false;
-//			for (Property property : properties){
-//				try {
-//					dateFormat.parse(property.getValue().toString());
-//					hasDate = true;
-//				} catch (ParseException e) { }
-//			}
-//			if(!hasDate){
-//				System.out.println("Warning : Date of feature not found");
-//				return false;
-//			}
-//		}
-//		return true;
-//	}
 	
 	public FeatureCollection<SimpleFeatureType, SimpleFeature> InterpolateFeatureCollection(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, double interval){
 		
@@ -181,16 +98,21 @@ public class BeachProfileTracking {
 		return resultFeatureCollection;
 	}
 	
-	public String sedimentaryBalanceCalc(FeatureCollection<SimpleFeatureType, SimpleFeature> profile, boolean ignoreDistLessThanFirstDate, double minDist, double maxDist) {
+	public FeatureCollection<SimpleFeatureType, SimpleFeature> sedimentaryBalanceCalc(FeatureCollection<SimpleFeatureType, SimpleFeature> profile, boolean ignoreDistLessThanFirstDate, double minDist, double maxDist) {
 		Coordinate[] coordinates = null;
 		String res = "result : \nDate ; Volume sedimentaire (m^3/m.l.) ; Difference avec date precedente ; Pourcentage evolution precedente ; Pourcentage evolution totale\n";		
 
-		SimpleFeatureTypeBuilder simpleFeatureTypeBuilder = new SimpleFeatureTypeBuilder();
-		simpleFeatureTypeBuilder.setName("featureType");
-		simpleFeatureTypeBuilder.add("geometry", MultiPoint.class);
-		simpleFeatureTypeBuilder.add("type", String.class);
-		simpleFeatureTypeBuilder.add("name", String.class);
-
+		SimpleFeatureTypeBuilder b = new SimpleFeatureTypeBuilder();
+		b.setName("featureType");
+		b.add("date", String.class);
+		b.add("volume", Double.class);
+		b.add("diffWithPrevious", Double.class);
+		b.add("previousEvolutionPercent", Double.class);
+		b.add("totalEvolutionPercent", Double.class);
+		SimpleFeatureType type = b.buildFeatureType();
+		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(type);		
+		DefaultFeatureCollection dfc = new DefaultFeatureCollection();
+		
 		Map<String, LineString> refProfile = BeachProfileUtils.getProfilesFromFeature(profile);
 		double refProfileArea = 0;
 		double lastProfileArea = 0;
@@ -219,6 +141,13 @@ public class BeachProfileTracking {
 				//System.out.println(refProfileArea);
 				res += entry.getKey().toString() + " ; ";
 				res += BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist) + " ; 0 ; 0 % ; 0 %\n";
+				builder.add(entry.getKey().toString());
+				builder.add(BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist));
+				builder.add(0);
+				builder.add(0);
+				builder.add(0);
+				SimpleFeature sf = builder.buildFeature(null);
+				dfc.add(sf);
 			}
 			else{
 				tempProfileDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates);
@@ -233,12 +162,18 @@ public class BeachProfileTracking {
 					res += (tempProfileArea - lastProfileArea) + " ; ";
 					res += (tempProfileArea - lastProfileArea)/lastProfileArea*100 + " % ; ";
 					res += totalEvolutionPercent + " % \n";
+					builder.add(entry.getKey().toString());
+					builder.add(tempProfileArea);
+					builder.add((tempProfileArea - lastProfileArea));
+					builder.add((tempProfileArea - lastProfileArea)/lastProfileArea*100);
+					builder.add(totalEvolutionPercent);
+					SimpleFeature sf = builder.buildFeature(null);
+					dfc.add(sf);
 					//2.4324304 × 100 ÷ 2.5368383 = 95.884
 					lastProfileArea = tempProfileArea;
 				}		
 			}
         }
-		//System.out.println(res);
-		return res;
+		return dfc;
 	}
 }

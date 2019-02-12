@@ -147,7 +147,4 @@ public class BeachProfileUtils {
 			}
 		}
 	}
-	
-//	public static FeatureCollection<SimpleFeatureType, SimpleFeature> createFeatureError() {	
-//	}
 }

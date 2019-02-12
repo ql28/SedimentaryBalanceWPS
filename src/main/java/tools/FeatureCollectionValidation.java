@@ -1,6 +1,8 @@
 package tools;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -15,6 +17,7 @@ import org.geotools.referencing.CRS;
 import org.opengis.feature.Property;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.filter.sort.SortBy;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 public class FeatureCollectionValidation {
@@ -109,16 +112,24 @@ public class FeatureCollectionValidation {
 			}
 			
 			//TODO sedimentaryBalanceCalc doit renvoyer une FeatureCollection. 1 feature = 1 evolution à une date, vide si erreur dans le processus de calcul
-			System.out.println(bp.sedimentaryBalanceCalc(fc2, false, 0, 0));
-			//FeatureCollection<SimpleFeatureType, SimpleFeature> fc3 = bp.sedimentaryBalanceCalc(fc3, false, 0, 0);
-
-//			if(!fc3.features().hasNext()){
-//				builder.set("error", "Sedimentary balance calcul failed");
-//				SimpleFeature sf = builder.buildFeature(null);
-//				dfc.add(sf);
-//			}
+			//TODO revoir methode BeachProfileUtils.createCSVFile qui doit lire la feature collection et retourner un csv
+			//TODO (créer un string avant, un peu comme l'ancien parametre de resulat de cac)
+			//TODO 1 ligne = 1feature, 1 colonne = 1 champ de la feature, 1ere ligne = clées des champs ?
+			FeatureCollection<SimpleFeatureType, SimpleFeature> fc3 = bp.sedimentaryBalanceCalc(fc2, false, 0, 0);
+			if(!fc3.features().hasNext()){
+				builder.set("error", "Sedimentary balance calcul failed");
+				SimpleFeature sf = builder.buildFeature(null);
+				dfc.add(sf);
+			}
+			FeatureIterator<SimpleFeature> iterator2 = fc3.features();
+			File dataDir = new File("data");
+			try {
+				GeoJsonUtils.featureCollectionToGeoJsonFile(fc3, dataDir, "testCalcFc");
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
-		
+
 		return dfc;
 	}
 	

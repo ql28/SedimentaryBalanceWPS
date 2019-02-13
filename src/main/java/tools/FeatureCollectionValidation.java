@@ -1,8 +1,6 @@
 package tools;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -17,7 +15,6 @@ import org.geotools.referencing.CRS;
 import org.opengis.feature.Property;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.filter.sort.SortBy;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 public class FeatureCollectionValidation {
@@ -26,7 +23,7 @@ public class FeatureCollectionValidation {
 	
 	public FeatureCollectionValidation(){}
 		
-	public FeatureCollection<SimpleFeatureType, SimpleFeature> FileValidation(File f){
+	public FeatureCollection<SimpleFeatureType, SimpleFeature> fileValidation(File f){
 				
 		SimpleFeatureTypeBuilder b = new SimpleFeatureTypeBuilder();
 		b.setName("ErrorFeature");
@@ -34,7 +31,7 @@ public class FeatureCollectionValidation {
 		SimpleFeatureType type = b.buildFeatureType();
 		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(type);		
 		DefaultFeatureCollection dfc = new DefaultFeatureCollection();
-		FeatureCollection<SimpleFeatureType, SimpleFeature> fc;
+		FeatureCollection<SimpleFeatureType, SimpleFeature> fc, fcInterpolation, fcResult;
 		
 		// check if the file contains a FeatureCollection. If it does, return it. Otherwise, return a FeatureCollection with an error message
 		try {
@@ -100,37 +97,29 @@ public class FeatureCollectionValidation {
 			SimpleFeature sf = builder.buildFeature(null);
 			dfc.add(sf);
 		}
-		
+				
 		//if the file doesn't have any errors, do the treatment
-		if(!dfc.features().hasNext()){
+		if(!dfc.features().hasNext()){			
+			//do the interpolation
 			BeachProfileTracking bp = new BeachProfileTracking();
-			FeatureCollection<SimpleFeatureType, SimpleFeature> fc2 = bp.InterpolateFeatureCollection(fc, 0.1);
-			if(!fc2.features().hasNext()){
+			fcInterpolation = bp.InterpolateFeatureCollection(fc, 0.1);
+			if(!fcInterpolation.features().hasNext()){
 				builder.set("error", "Interpolation failed");
 				SimpleFeature sf = builder.buildFeature(null);
 				dfc.add(sf);
 			}
-			
-			//TODO sedimentaryBalanceCalc doit renvoyer une FeatureCollection. 1 feature = 1 evolution à une date, vide si erreur dans le processus de calcul
-			//TODO revoir methode BeachProfileUtils.createCSVFile qui doit lire la feature collection et retourner un csv
-			//TODO (créer un string avant, un peu comme l'ancien parametre de resulat de cac)
-			//TODO 1 ligne = 1feature, 1 colonne = 1 champ de la feature, 1ere ligne = clées des champs ?
-			FeatureCollection<SimpleFeatureType, SimpleFeature> fc3 = bp.sedimentaryBalanceCalc(fc2, false, 0, 0);
-			if(!fc3.features().hasNext()){
+			//do the calculation
+			fcResult = bp.sedimentaryBalanceCalc(fcInterpolation, false, 0, 0);
+			if(!fcResult.features().hasNext()){
 				builder.set("error", "Sedimentary balance calcul failed");
 				SimpleFeature sf = builder.buildFeature(null);
 				dfc.add(sf);
 			}
-			FeatureIterator<SimpleFeature> iterator2 = fc3.features();
-			File dataDir = new File("data");
-			try {
-				GeoJsonUtils.featureCollectionToGeoJsonFile(fc3, dataDir, "testCalcFc");
-			} catch (IOException e) {
-				e.printStackTrace();
+			else{
+				return fcResult; //if the treatment worked, return the result FC 	
 			}
-		}
-
-		return dfc;
-	}
-	
+		}	
+		//return the error feature
+		return dfc;			
+	}	
 }

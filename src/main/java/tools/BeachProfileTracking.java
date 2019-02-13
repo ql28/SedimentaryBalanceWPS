@@ -1,52 +1,32 @@
 package tools;
 
+import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.geotools.data.Query;
-import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.feature.DefaultFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
-import org.geotools.referencing.CRS;
-import org.opengis.feature.Property;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.filter.sort.SortBy;
-import org.opengis.filter.sort.SortOrder;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.NoSuchAuthorityCodeException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.opengis.feature.type.AttributeType;
 
 import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.CoordinateSequence;
-import com.vividsolutions.jts.geom.CoordinateSequenceFactory;
-import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LineString;
-import com.vividsolutions.jts.geom.MultiLineString;
-import com.vividsolutions.jts.geom.MultiPoint;
-import com.vividsolutions.jts.geom.Point;
-import com.vividsolutions.jts.geom.PrecisionModel;
 
-import net.sf.geographiclib.*;
+import net.sf.geographiclib.Geodesic;
+import net.sf.geographiclib.GeodesicData;
 
 public class BeachProfileTracking {
-
-	private static DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
 
 	public BeachProfileTracking() {}
 	
@@ -100,7 +80,6 @@ public class BeachProfileTracking {
 	
 	public FeatureCollection<SimpleFeatureType, SimpleFeature> sedimentaryBalanceCalc(FeatureCollection<SimpleFeatureType, SimpleFeature> profile, boolean ignoreDistLessThanFirstDate, double minDist, double maxDist) {
 		Coordinate[] coordinates = null;
-		String res = "result : \nDate ; Volume sedimentaire (m^3/m.l.) ; Difference avec date precedente ; Pourcentage evolution precedente ; Pourcentage evolution totale\n";		
 
 		SimpleFeatureTypeBuilder b = new SimpleFeatureTypeBuilder();
 		b.setName("featureType");
@@ -138,9 +117,6 @@ public class BeachProfileTracking {
 				if(minDist > maxDist) minDist = 0;					
 			
 				refProfileArea = lastProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist);
-				//System.out.println(refProfileArea);
-				res += entry.getKey().toString() + " ; ";
-				res += BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist) + " ; 0 ; 0 % ; 0 %\n";
 				builder.add(entry.getKey().toString());
 				builder.add(BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist));
 				builder.add(0);
@@ -157,11 +133,6 @@ public class BeachProfileTracking {
 				else{
 					tempProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist);
 					totalEvolutionPercent += (tempProfileArea - lastProfileArea)/lastProfileArea*100;
-					res += entry.getKey().toString() + " ; ";
-					res += tempProfileArea + " ; ";
-					res += (tempProfileArea - lastProfileArea) + " ; ";
-					res += (tempProfileArea - lastProfileArea)/lastProfileArea*100 + " % ; ";
-					res += totalEvolutionPercent + " % \n";
 					builder.add(entry.getKey().toString());
 					builder.add(tempProfileArea);
 					builder.add((tempProfileArea - lastProfileArea));
@@ -176,4 +147,41 @@ public class BeachProfileTracking {
         }
 		return dfc;
 	}
+
+	public boolean createCSVFile(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection, File dataDir, String fileName) {
+		
+		String csvString = "";
+		
+		//get column name from the features properties
+		List<AttributeType> attributes = featureCollection.getSchema().getTypes();
+		for(AttributeType att : attributes) csvString += att.getName() + ";";
+		csvString +="\n";
+		
+		//loop in the featureCollection, create a new line for each feature and add recovered data
+		FeatureIterator<SimpleFeature> iterator = featureCollection.features();
+		while (iterator.hasNext()) {
+			SimpleFeature feature = iterator.next();			
+			for(int i = 0; i< feature.getAttributeCount(); i++)	csvString += feature.getAttribute(i) + ";";
+			csvString += "\n";
+		}
+		
+		//create file
+		BufferedWriter bw = null;
+		try {
+			bw = new BufferedWriter(new FileWriter(new File(dataDir, fileName)));
+			bw.write(csvString);
+		} catch (IOException e) {
+			System.out.println("erreur entrées sorties");
+			return false;
+		} finally {
+			try {
+				bw.close();
+			} catch (IOException e) {
+				System.out.println("erreur entrées sorties");
+				return false;
+			}
+		}
+		return true;
+	}
+
 }

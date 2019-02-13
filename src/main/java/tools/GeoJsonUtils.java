@@ -11,7 +11,6 @@ import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.geojson.feature.FeatureJSON;
 import org.geotools.geojson.geom.GeometryJSON;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -21,13 +20,6 @@ import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 public class GeoJsonUtils {
-	private static final String POINT = "Point";
-	private static final String MULTIPOINT = "MultiPoint";
-	private static final String LINESTRING = "LineString";
-	private static final String MULTILINESTRING = "MultiLineString";
-	private static final String POLYGON = "Polygon";
-	private static final String MULTIPOLYGON = "MultiPolygon";
-	private static GeometryJSON geometryJSON;
 	private static FeatureJSON featureJSON;
 	
 	private static String geoJsonToString(File jsonFile) throws FileNotFoundException, IOException, ParseException {	
@@ -66,6 +58,7 @@ public class GeoJsonUtils {
 	}
 	
 	//create a feature collection from a file
+	@SuppressWarnings("unchecked")
 	public static FeatureCollection<SimpleFeatureType, SimpleFeature> geoJsonToFeatureCollection(File featureCollectionFile) throws FileNotFoundException, IOException {
 		featureJSON = new FeatureJSON();
 		return featureJSON.readFeatureCollection(new FileInputStream(featureCollectionFile));

@@ -1,14 +1,9 @@
 package tools;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.TreeMap;
@@ -22,6 +17,7 @@ import org.opengis.feature.simple.SimpleFeatureType;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.LineString;
+
 import net.sf.geographiclib.Geodesic;
 import net.sf.geographiclib.GeodesicData;
 import net.sf.geographiclib.GeodesicLine;
@@ -45,15 +41,12 @@ public class BeachProfileUtils {
 				GeodesicData d = geod.Inverse(coordinates[i].y, coordinates[i].x, coordinates[i+1].y, coordinates[i+1].x);
 				tempDist = Math.round(totalDist * 1000.0) / 1000.0;
 				totalDist += d.s12;
-				//System.out.println(tempDist + " : " + Math.round(totalDist * 1000.0) / 1000.0);
 				if(minDist <= tempDist && maxDist+0.01 >= Math.round(totalDist * 1000.0) / 1000.0){
-					//System.out.println(Math.round(totalDist * 1000.0) / 1000.0 + " : " + coordinates[i].z + " : " + coordinates[i+1].z + " : " + ((coordinates[i].z + coordinates[i+1].z )*d.s12)/2);
 					area += ((coordinates[i].z + coordinates[i+1].z)*d.s12)/2;					
 				}
 			}
 		}
 		area = area/(maxDist-minDist);
-		//System.out.println((maxDist-minDist) + " : " + area);
 		return area;
 	}
 	
@@ -70,19 +63,9 @@ public class BeachProfileUtils {
 			GeodesicData d = geod.Inverse(coordinates[i-1].y, coordinates[i-1].x, coordinates[i].y, coordinates[i].x);
 			totalDist += d.s12;
 		}
-		//System.out.println(totalDist);
 		return totalDist;
 	}
-	
-	/**
-	 * Transform degree value to radiant
-	 * @param deg
-	 * @return a radiant
-	 */
-	public static double deg2rad(double deg) {
-		return deg * (Math.PI/180);
-	}
-	
+
 	/**
 	 * @param featureCollection
 	 * @return all LineString of the featureCollection
@@ -130,21 +113,5 @@ public class BeachProfileUtils {
 		}
 		l.add(new Coordinate(c2.x,c2.y,c2.z));		
 		return l;
-	}
-	
-	public static void createCSVFile(String csvString, File dataDir, String fileName) {
-		BufferedWriter bw = null;
-		try {
-			bw = new BufferedWriter(new FileWriter(new File(dataDir, fileName)));
-			bw.write(csvString);
-		} catch (IOException e) {
-			System.out.println("erreur entrées sorties");
-		} finally {
-			try {
-				bw.close();
-			} catch (IOException e) {
-				System.out.println("erreur entrées sorties");
-			}
-		}
 	}
 }

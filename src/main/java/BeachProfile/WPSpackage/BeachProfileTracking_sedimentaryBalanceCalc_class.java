@@ -20,10 +20,10 @@ public class BeachProfileTracking_sedimentaryBalanceCalc_class extends StaticMet
 	}
 
 	@DescribeProcess(title="BeachProfileTracking_sedimentaryBalanceCalc",description="Add a description of BeachProfileTracking_sedimentaryBalanceCalc")
-	@DescribeResult(name="result",description="the result of the beach profile calcul")
-	public static String BeachProfileTracking_sedimentaryBalanceCalc(@DescribeParameter(name="profile",description=" the beach profile") FeatureCollection<SimpleFeatureType, SimpleFeature> profile) {
-		String result;
-		result = callObject.sedimentaryBalanceCalc( profile);
+	@DescribeResult(name="result",description="a feature collection containing the results of the treatment")
+	public static FeatureCollection<SimpleFeatureType, SimpleFeature> BeachProfileTracking_sedimentaryBalanceCalc(@DescribeParameter(name="profile",description=" feature collection containing multiple features of a beach profile") FeatureCollection<SimpleFeatureType, SimpleFeature> profile,@DescribeParameter(name="useSmallestDistance",description=" if useSmallestDistance is true, use the smallest distance between all features, else ignore the feature shorter than the first one") Boolean useSmallestDistance,@DescribeParameter(name="minDist",description=" specifie the minimum distance of the interval of calculation") Double minDist,@DescribeParameter(name="maxDist",description=" specifie the maximum distance of the interval of calculation") Double maxDist) {
+		FeatureCollection<SimpleFeatureType, SimpleFeature> result;
+		result = callObject.sedimentaryBalanceCalc( profile, useSmallestDistance, minDist, maxDist);
 
 		return result;
 	}

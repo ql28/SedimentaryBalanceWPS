@@ -4,6 +4,8 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -78,7 +80,7 @@ public class BeachProfileTracking {
 		return resultFeatureCollection;
 	}
 	
-	public FeatureCollection<SimpleFeatureType, SimpleFeature> sedimentaryBalanceCalc(FeatureCollection<SimpleFeatureType, SimpleFeature> profile, boolean ignoreDistLessThanFirstDate, double minDist, double maxDist) {
+	public FeatureCollection<SimpleFeatureType, SimpleFeature> sedimentaryBalanceCalc(FeatureCollection<SimpleFeatureType, SimpleFeature> profile, boolean useSmallestDistance, double minDist, double maxDist) {
 		Coordinate[] coordinates = null;
 
 		SimpleFeatureTypeBuilder b = new SimpleFeatureTypeBuilder();
@@ -103,10 +105,10 @@ public class BeachProfileTracking {
 			coordinates = entry.getValue().getCoordinates();
 			if(refProfileArea == 0){
 				//if we don't specify maxDist, check ignoreDateWithLessDist					
-				//if ignoreDistLessThanFirstDate is true, ignore the feature with a distance less than the distance of the first date
-				//else if ignoreDateWithLessDist is false, use the smallest distance of all features
+				//if useSmallestDistance is false, ignore the feature with a distance less than the distance of the first date
+				//else if useSmallestDistance is true, use the smallest distance of all features
 				tempMaxDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates);
-				if(!ignoreDistLessThanFirstDate){
+				if(useSmallestDistance){
 					for (Entry<String, LineString> entry2 : refProfile.entrySet()) {
 						double dist = BeachProfileUtils.getDistanceFromCoordinates(entry2.getValue().getCoordinates());
 						tempMaxDist = dist < tempMaxDist ? dist : tempMaxDist;						
@@ -148,6 +150,27 @@ public class BeachProfileTracking {
 		return dfc;
 	}
 
+	
+	public String featureToCSV(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection) {
+
+		String csvString = "";
+		
+		//get column name from the features properties
+		List<AttributeType> attributes = featureCollection.getSchema().getTypes();
+		for(AttributeType att : attributes) csvString += att.getName() + ";";
+		csvString +="\n";
+		
+		//loop in the featureCollection, create a new line for each feature and add recovered data
+		FeatureIterator<SimpleFeature> iterator = featureCollection.features();
+		while (iterator.hasNext()) {
+			SimpleFeature feature = iterator.next();			
+			for(int i = 0; i< feature.getAttributeCount(); i++)	csvString += feature.getAttribute(i) + ";";
+			csvString += "\n";
+		}
+		
+		return csvString;
+	}
+	
 	public boolean createCSVFile(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection, File dataDir, String fileName) {
 		
 		String csvString = "";

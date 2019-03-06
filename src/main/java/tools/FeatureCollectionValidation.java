@@ -109,7 +109,7 @@ public class FeatureCollectionValidation {
 				dfc.add(sf);
 			}
 			//do the calculation
-			fcResult = bp.sedimentaryBalanceCalc(fcInterpolation, false, 0, 0);
+			fcResult = bp.sedimentaryBalanceCalc(fcInterpolation, true, 0, 0);
 			if(!fcResult.features().hasNext()){
 				builder.set("error", "Sedimentary balance calcul failed");
 				SimpleFeature sf = builder.buildFeature(null);

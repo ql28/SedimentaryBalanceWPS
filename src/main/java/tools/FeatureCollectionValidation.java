@@ -90,21 +90,27 @@ public class FeatureCollectionValidation {
 				
 		//other parameters checking
 		if(interpolationValue < 0){
-			
-		}		
-		//minDist et max Dist à 0 si le calcul se fait sur toute la longueur du profil
+			builder.set("error", "The interpolation value can not be negative");
+			SimpleFeature sf = builder.buildFeature(null);
+			dfc.add(sf);
+		}
 		if(minDist < 0)
 		{
-			
+			builder.set("error", "The minDist value can not be negative");
+			SimpleFeature sf = builder.buildFeature(null);
+			dfc.add(sf);
 		}
 		if(maxDist < 0)
 		{
-			
+			builder.set("error", "The maxDist value can not be negative");
+			SimpleFeature sf = builder.buildFeature(null);
+			dfc.add(sf);
 		}
 		if(minDist >= maxDist && minDist != 0){
-			
+			builder.set("error", "the minDist value can not be higher or equal to the maxDist value");
+			SimpleFeature sf = builder.buildFeature(null);
+			dfc.add(sf);
 		}
-	
 		
 		//if the file doesn't have any errors, do the treatment
 		if(!dfc.features().hasNext()){			

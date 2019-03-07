@@ -42,7 +42,9 @@ public class BeachProfileTracking {
 	public BeachProfileTracking() {}
 	
 	public FeatureCollection<SimpleFeatureType, SimpleFeature> InterpolateFeatureCollection(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, double interval){
-		
+		if(interval <= 0){
+			return fc;
+		}
 		GeometryFactory geometryFactory = new GeometryFactory();
 		DefaultFeatureCollection resultFeatureCollection = null;
 		Map<String, LineString> lineStrings = BeachProfileUtils.getProfilesFromFeature(fc);
@@ -124,8 +126,8 @@ public class BeachProfileTracking {
 					}
 				}
 				if(maxDist > tempMaxDist || maxDist <= 0) maxDist = tempMaxDist;
-				//if minDist > maxDist
-				if(minDist > maxDist) minDist = 0;					
+				if(minDist < 0) minDist = 0;
+				if(minDist >= maxDist) minDist = 0;					
 			
 				refProfileArea = lastProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist);
 				builder.add(entry.getKey().toString());

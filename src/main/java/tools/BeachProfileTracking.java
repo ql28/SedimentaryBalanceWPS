@@ -4,8 +4,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -31,21 +29,26 @@ import com.vividsolutions.jts.geom.LineString;
 
 public class BeachProfileTracking {
 
-	private static DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-
 	public BeachProfileTracking() {}
 	
+	/**
+	 * Do an interpolation for each Feature's Geometry of a FeatureCollection with an interval
+	 * @param fc
+	 * @param interval in meters
+	 * @return
+	 */
 	public FeatureCollection<SimpleFeatureType, SimpleFeature> InterpolateFeatureCollection(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, double interval){
 		if(interval <= 0){
 			return fc;
 		}
+		//load the LineStrings
 		CoordinateReferenceSystem myCrs = fc.getSchema().getCoordinateReferenceSystem();
-		
 		GeometryFactory geometryFactory = new GeometryFactory();
 		DefaultFeatureCollection resultFeatureCollection = null;
 		Map<String, LineString> lineStrings = BeachProfileUtils.getProfilesFromFeature(fc);
 		Map<String, LineString> interpolatedLineStrings = new HashMap<String,LineString>();
 		
+		//do the interpolation
 		lineStrings.forEach((a,b) -> {
 			if(b.getNumPoints() > 1){
 				Coordinate[] coordinates = b.getCoordinates();
@@ -53,6 +56,9 @@ public class BeachProfileTracking {
 				LinkedList<Coordinate> tempList;
 				double offset = 0.0;
 				double totalDist = 0.0;
+				//iterate through each point to create a number of new point between.
+				//the offset is used to stack the distance remained at the end of each interpolation. It is then add to the next interpolation
+				//With the offset we are sure to have a new point at the same interval plus the original points between them.
 				for (int i = 1; i < coordinates.length; i++) {
 					GeodeticCalculator gc = new GeodeticCalculator(myCrs);
 						try {
@@ -63,7 +69,7 @@ public class BeachProfileTracking {
 						}
 					double dist = gc.getOrthodromicDistance();
 					totalDist += dist;
-					tempList = BeachProfileUtils.InterpolateCoordinates(offset, interval, coordinates[i-1], coordinates[i]);
+					tempList = BeachProfileUtils.InterpolateCoordinates(offset, interval, coordinates[i-1], coordinates[i], myCrs);
 					if(i != coordinates.length -1) tempList.removeLast();
 					newCoordinates.addAll(tempList);
 					offset = totalDist%interval;
@@ -74,15 +80,15 @@ public class BeachProfileTracking {
 			}
 		});
 		
+		//create a new FeatureCollection to add the new coordinates
 		SimpleFeatureTypeBuilder simpleFeatureTypeBuilder = new SimpleFeatureTypeBuilder();
+		simpleFeatureTypeBuilder.setCRS(myCrs);
 		simpleFeatureTypeBuilder.setName("featureType");
 		simpleFeatureTypeBuilder.add("geometry", LineString.class);
 		simpleFeatureTypeBuilder.add("date", String.class);
-		
 		// init DefaultFeatureCollection
 		SimpleFeatureBuilder simpleFeatureBuilder = new SimpleFeatureBuilder(simpleFeatureTypeBuilder.buildFeatureType());
 		resultFeatureCollection = new DefaultFeatureCollection(null, simpleFeatureBuilder.getFeatureType());
-
 		// add geometrie to defaultFeatures
 		for (Entry<String, LineString> entry : interpolatedLineStrings.entrySet())
 		{
@@ -93,9 +99,18 @@ public class BeachProfileTracking {
 		return resultFeatureCollection;
 	}
 	
+	/**
+	 * Calculate the area of sediments for a length and compare it between each Feature
+	 * @param profile
+	 * @param useSmallestDistance
+	 * @param minDist
+	 * @param maxDist
+	 * @return
+	 */
 	public FeatureCollection<SimpleFeatureType, SimpleFeature> sedimentaryBalanceCalc(FeatureCollection<SimpleFeatureType, SimpleFeature> profile, boolean useSmallestDistance, double minDist, double maxDist) {
 		Coordinate[] coordinates = null;
-
+		CoordinateReferenceSystem myCrs = profile.getSchema().getCoordinateReferenceSystem();
+		//create a new FeatureCollection to write the calculation results
 		SimpleFeatureTypeBuilder b = new SimpleFeatureTypeBuilder();
 		b.setName("featureType");
 		b.add("date", String.class);
@@ -120,20 +135,22 @@ public class BeachProfileTracking {
 				//if we don't specify maxDist, check ignoreDateWithLessDist					
 				//if useSmallestDistance is false, ignore the feature with a distance less than the distance of the first date
 				//else if useSmallestDistance is true, use the smallest distance of all features
-				tempMaxDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates);
+				tempMaxDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates, myCrs);
 				if(useSmallestDistance){
 					for (Entry<String, LineString> entry2 : refProfile.entrySet()) {
-						double dist = BeachProfileUtils.getDistanceFromCoordinates(entry2.getValue().getCoordinates());
+						double dist = BeachProfileUtils.getDistanceFromCoordinates(entry2.getValue().getCoordinates(), myCrs);
 						tempMaxDist = dist < tempMaxDist ? dist : tempMaxDist;						
 					}
 				}
+				//handle min/max issues
 				if(maxDist > tempMaxDist || maxDist <= 0) maxDist = tempMaxDist;
 				if(minDist < 0) minDist = 0;
 				if(minDist >= maxDist) minDist = 0;					
 			
-				refProfileArea = lastProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist);
+				refProfileArea = lastProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist, myCrs);
+				//write the result. For the first date we don't have evolutions values so we add a 0 value
 				builder.add(entry.getKey().toString());
-				builder.add(BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist));
+				builder.add(BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist, myCrs));
 				builder.add(0);
 				builder.add(0);
 				builder.add(0);
@@ -141,13 +158,14 @@ public class BeachProfileTracking {
 				dfc.add(sf);
 			}
 			else{
-				tempProfileDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates);
+				tempProfileDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates, myCrs);
 				if(tempProfileDist < maxDist){
 					System.out.println(entry.getKey().toString() + " | " + tempProfileDist + " | distance at this date is less than the distance wanted");
 				}
 				else{
-					tempProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist);
+					tempProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist, myCrs);
 					totalEvolutionPercent += (tempProfileArea - lastProfileArea)/lastProfileArea*100;
+					//write the results
 					builder.add(entry.getKey().toString());
 					builder.add(tempProfileArea);
 					builder.add((tempProfileArea - lastProfileArea));
@@ -155,7 +173,6 @@ public class BeachProfileTracking {
 					builder.add(totalEvolutionPercent);
 					SimpleFeature sf = builder.buildFeature(null);
 					dfc.add(sf);
-					//2.4324304 × 100 ÷ 2.5368383 = 95.884
 					lastProfileArea = tempProfileArea;
 				}		
 			}
@@ -163,9 +180,12 @@ public class BeachProfileTracking {
 		return dfc;
 	}
 
-	
+	/**
+	 * Convert the FeatureColleciton to a string which is then readable in .csv format
+	 * @param featureCollection
+	 * @return
+	 */
 	public String featureToCSV(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection) {
-
 		String csvString = "";
 		
 		//get column name from the features properties
@@ -184,6 +204,13 @@ public class BeachProfileTracking {
 		return csvString;
 	}
 	
+	/**
+	 * Create a csv file from a featurecollection, use for local testing 
+	 * @param featureCollection
+	 * @param dataDir
+	 * @param fileName
+	 * @return
+	 */
 	public boolean createCSVFile(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection, File dataDir, String fileName) {
 		
 		String csvString = "";

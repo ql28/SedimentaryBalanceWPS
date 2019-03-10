@@ -71,17 +71,11 @@ public class FeatureCollectionValidation {
 		// check if the file contains a CoordinateReferenceSystem. if not, add a feature with an error message
 		try {
 			CoordinateReferenceSystem myCRS = fc.getSchema().getCoordinateReferenceSystem();
-			//CoordinateReferenceSystem refCRS = CRS.decode("EPSG:4326");
 			if(myCRS == null){
 				builder.set("error", "Impossible to find the CoordinateReferenceSystem of the file");
 				SimpleFeature sf = builder.buildFeature(null);
 				dfc.add(sf);
 			}
-//			else if(!CRS.equalsIgnoreMetadata(object1, object2).equalsIgnoreMetadata(myCRS, refCRS)){
-//				builder.set("error", "The CoordinateReferenceSystem is not of type WGS 84 (EPSG 4326).. : " + refCRS.toString() + " _____________ " + myCRS.toString());
-//				SimpleFeature sf = builder.buildFeature(null);
-//				dfc.add(sf);
-//			}
 		} catch (Exception e) {
 			builder.set("error", "Impossible to find the CoordinateReferenceSystem of the file");
 			SimpleFeature sf = builder.buildFeature(null);

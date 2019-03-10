@@ -5,11 +5,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DateFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -21,19 +17,17 @@ import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
-import org.geotools.referencing.CRS;
-import org.opengis.feature.Property;
+import org.geotools.geometry.jts.JTS;
+import org.geotools.referencing.GeodeticCalculator;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeType;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.opengis.referencing.operation.TransformException;
 
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LineString;
-
-import net.sf.geographiclib.Geodesic;
-import net.sf.geographiclib.GeodesicData;
 
 public class BeachProfileTracking {
 
@@ -45,6 +39,8 @@ public class BeachProfileTracking {
 		if(interval <= 0){
 			return fc;
 		}
+		CoordinateReferenceSystem myCrs = fc.getSchema().getCoordinateReferenceSystem();
+		
 		GeometryFactory geometryFactory = new GeometryFactory();
 		DefaultFeatureCollection resultFeatureCollection = null;
 		Map<String, LineString> lineStrings = BeachProfileUtils.getProfilesFromFeature(fc);
@@ -58,9 +54,15 @@ public class BeachProfileTracking {
 				double offset = 0.0;
 				double totalDist = 0.0;
 				for (int i = 1; i < coordinates.length; i++) {
-					Geodesic geod = Geodesic.WGS84;
-					GeodesicData d = geod.Inverse(coordinates[i-1].y, coordinates[i-1].x, coordinates[i].y, coordinates[i].x);
-					totalDist += d.s12;
+					GeodeticCalculator gc = new GeodeticCalculator(myCrs);
+						try {
+							gc.setStartingPosition(JTS.toDirectPosition(coordinates[i-1], myCrs));
+							gc.setDestinationPosition(JTS.toDirectPosition(coordinates[i], myCrs));
+						} catch (TransformException e) {
+							e.printStackTrace();
+						}
+					double dist = gc.getOrthodromicDistance();
+					totalDist += dist;
 					tempList = BeachProfileUtils.InterpolateCoordinates(offset, interval, coordinates[i-1], coordinates[i]);
 					if(i != coordinates.length -1) tempList.removeLast();
 					newCoordinates.addAll(tempList);
